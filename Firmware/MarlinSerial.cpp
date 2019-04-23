@@ -65,7 +65,7 @@ FORCE_INLINE void store_char(unsigned char c)
       }
   }
 #ifndef SNMM
-  SIGNAL(USART2_RX_vect)
+  SIGNAL(USARTB_RX_vect)
   {
       if (selectedSerialPort == 1) {
         // Test for a framing error.
@@ -378,4 +378,3 @@ MarlinSerial MSerial;
 #if defined(AT90USB) && defined (BTENABLED)
    HardwareSerial bt;
 #endif
-
