@@ -63,20 +63,19 @@ fi
 if [ -z "$LANGUAGES" ]; then
     export LANGUAGES="cs de es fr it pl"
 fi
-#
+
 # Check for community languages
-MAX_COMMINITY_LANG=10 # Total 16 - 6 default
-COMMUNITY_LANGUAGES=""
+MAX_COMMUNITY_LANG=10 # Total 16 - 6 default
 #Search Firmware/config.h for active community group
 COMMUNITY_LANG_GROUP=$(grep --max-count=1 "^#define COMMUNITY_LANG_GROUP" $SRCDIR/Firmware/config.h| cut -d ' ' -f3)
 
 # Search Firmware/config.h for active community languanges
 if [ "$COMMUNITY_LANG_GROUP" = "1" ]; then
-    COMMUNITY_LANGUAGES=$(grep --max-count=$MAX_COMMINITY_LANG "^#define COMMUNITY_LANG_GROUP1_" $SRCDIR/Firmware/config.h| cut -d '_' -f4 |cut -d ' ' -f1 |tr '[:upper:]' '[:lower:]'| tr '\n' ' ')
+    COMMUNITY_LANGUAGES=$(grep --max-count=$MAX_COMMUNITY_LANG "^#define COMMUNITY_LANG_GROUP1_" $SRCDIR/Firmware/config.h| cut -d '_' -f4 |cut -d ' ' -f1 |tr '[:upper:]' '[:lower:]'| tr '\n' ' ')
 elif [ "$COMMUNITY_LANG_GROUP" = "2" ]; then
-    COMMUNITY_LANGUAGES=$(grep --max-count=$MAX_COMMINITY_LANG "^#define COMMUNITY_LANG_GROUP2_" $SRCDIR/Firmware/config.h| cut -d '_' -f4 |cut -d ' ' -f1 |tr '[:upper:]' '[:lower:]'| tr '\n' ' ')
+    COMMUNITY_LANGUAGES=$(grep --max-count=$MAX_COMMUNITY_LANG "^#define COMMUNITY_LANG_GROUP2_" $SRCDIR/Firmware/config.h| cut -d '_' -f4 |cut -d ' ' -f1 |tr '[:upper:]' '[:lower:]'| tr '\n' ' ')
 elif [ "$COMMUNITY_LANG_GROUP" = "3" ]; then
-    COMMUNITY_LANGUAGES=$(grep --max-count=$MAX_COMMINITY_LANG "^#define COMMUNITY_LANG_GROUP3_" $SRCDIR/Firmware/config.h| cut -d '_' -f4 |cut -d ' ' -f1 |tr '[:upper:]' '[:lower:]'| tr '\n' ' ')
+    COMMUNITY_LANGUAGES=$(grep --max-count=$MAX_COMMUNITY_LANG "^#define COMMUNITY_LANG_GROUP3_" $SRCDIR/Firmware/config.h| cut -d '_' -f4 |cut -d ' ' -f1 |tr '[:upper:]' '[:lower:]'| tr '\n' ' ')
 fi
 
 # End of customization
