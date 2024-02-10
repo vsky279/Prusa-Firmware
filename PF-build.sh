@@ -915,7 +915,8 @@ fi
 
 #Check git branch has changed
 if [ ! -z "git_available" ]; then
-    BRANCH=$(git branch --show-current)
+    #BRANCH=$(git branch --show-current)
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
     echo "Current branch is:" $BRANCH
     if [ ! -f "$SCRIPT_PATH/../PF-build.branch" ]; then
         #echo "$BRANCH" >| $SCRIPT_PATH/../PF-build.branch
