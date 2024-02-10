@@ -1292,7 +1292,7 @@ static void lcd_menu_fails_stats()
 
 	menu_back_if_clicked();
 }
-#else
+#elif defined(TMC2130)
 static void lcd_menu_fails_stats()
 {
 	lcd_timeoutToStatus.stop(); //infinite timeout
@@ -3277,7 +3277,9 @@ static void lcd_show_sensors_state()
 {
 	//0: N/A; 1: OFF; 2: ON
 	uint8_t pinda_state = STATE_NA;
+#ifdef FILAMENT_SENSOR
 	uint8_t idler_state = STATE_NA;
+#endif //FILAMENT_SENSOR
 
 	pinda_state = READ(Z_MIN_PIN);
 	lcd_puts_at_P(0, 0, MSG_PINDA);
@@ -4952,9 +4954,9 @@ static void lcd_selftest_setfan(const uint8_t speed) {
     manage_heater();
 }
 
+#ifdef FANCHECK
 static bool fan_error_selftest()
 {
-#ifdef FANCHECK
     if (!fans_check_enabled) return 0;
 
     lcd_selftest_setfan(255);
@@ -4979,9 +4981,9 @@ static bool fan_error_selftest()
         return 1;
     }
 #endif
-#endif //FANCHECK
     return 0;
 }
+#endif //FANCHECK
 
 bool resume_print_checks() {
     // reset the lcd status so that a newer error will be shown
@@ -5275,7 +5277,11 @@ static void lcd_main_menu()
 
     if ( ! ( printer_active() || (eFilamentAction != FilamentAction::None) || Stopped ) ) {
         if (MMU2::mmu2.Enabled()) {
-            if(!MMU2::mmu2.FindaDetectsFilament() && !fsensor.getFilamentPresent()) {
+            if(!MMU2::mmu2.FindaDetectsFilament() 
+#ifdef FILAMENT_SENSOR
+                && !fsensor.getFilamentPresent()
+#endif                
+            ) {
                 // The MMU 'Load filament' state machine will reject the command if any 
                 // filament sensor is reporting a detected filament
                 MENU_ITEM_SUBMENU_P(_T(MSG_PRELOAD_TO_MMU), mmu_preload_filament_menu);
