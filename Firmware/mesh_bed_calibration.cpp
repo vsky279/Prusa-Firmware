@@ -2248,6 +2248,12 @@ BedSkewOffsetDetectionResultType find_bed_offset_and_skew(int8_t verbosity_level
     for (uint8_t retries = 0; retries <= 1; ++retries) {
         bool retry = false;
         for (int k = 0; k < 4; ++k) {
+            if (k==2) {
+                if (verbosity_level >= 20) {
+                    SERIAL_ECHOLNPGM("Skipping point #3");
+                }
+                ++k;
+            }
             // Don't let the manage_inactivity() function remove power from the motors.
             refresh_cmd_timeout();
 #ifdef MESH_BED_CALIBRATION_SHOW_LCD
@@ -2428,6 +2434,19 @@ BedSkewOffsetDetectionResultType find_bed_offset_and_skew(int8_t verbosity_level
 				SERIAL_ECHOPGM(" < ");
 				MYSERIAL.println(Y_MIN_POS_CALIBRATION_POINT_OUT_OF_REACH);
 		}
+        
+        // pts[4] = pts[2];
+        // pts[5] = pts[7];
+
+        float x1 = pts[0];
+        float y1 = pts[1];
+        float x2 = pts[2];
+        float y2 = pts[3];
+        float d2 = pow(pts[6]-pts[0], 2) + pow(pts[7]-pts[1], 2);
+        pts[4] = (sqrt(d2*pow(y1 - y2, 2)*(pow(x1, 2) - 2*x2*x1 + pow(x2, 2) + pow(y1 - y2, 2))) + x2*pow(y1 - y2, 2) + pow(x2, 3) - 2*x1*pow(x2, 2) + pow(x1, 2)*x2)/
+            (pow(x1, 2) - 2*x2*x1 + pow(x2, 2) + pow(y1 - y2, 2));
+        pts[5] = -(x2-x1)/(y2-y1)*(pts[4]-x2)+y2;
+        
 		result = calculate_machine_skew_and_offset_LS(pts, 4, bed_ref_points_4, vec_x, vec_y, cntr, verbosity_level);
 		delay_keep_alive(0); //manage_heater, reset watchdog, manage inactivity
 		
