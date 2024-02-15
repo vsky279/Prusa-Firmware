@@ -6,16 +6,30 @@
 #include "rbuf.h"
 #include "macros.h"
 
+#define SERIAL_PORT 2 // needs to be same as in Configuration.h
+
 #define UART2_BAUD 115200
 #define UART_BAUD_SELECT(baudRate,xtalCpu) (((float)(xtalCpu))/(((float)(baudRate))*8.0)-1.0+0.5)
 #define uart2_rxcomplete (UCSR2A & (1 << RXC2))
 #define uart2_txcomplete (UCSR2A & (1 << TXC2))
 #define uart2_txready    (UCSR2A & (1 << UDRE2))
 
-uint8_t uart2_ibuf[20] = {0, 0};
-
 FILE _uart2io = {0};
 
+#if SERIAL_PORT == 2
+#define UNUSED(x) (void)(x)
+void uart2_init(uint32_t baudRate)
+{
+  UNUSED(baudRate);
+}
+
+int8_t uart2_rx_str_P(const char* str)
+{
+  UNUSED(str);
+	return 1;
+}
+#else
+uint8_t uart2_ibuf[20] = {0, 0};
 
 int uart2_putchar(char c, _UNUSED FILE *stream)
 {
@@ -82,4 +96,4 @@ ISR(USART2_RX_vect)
 		puts_P(PSTR("USART2 rx Full!!!"));
 	}
 }
-
+#endif
