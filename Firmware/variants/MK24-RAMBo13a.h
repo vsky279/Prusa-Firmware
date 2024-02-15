@@ -38,7 +38,7 @@
  *------------------------------------*/
 
 // Steps per unit {X,Y,Z,E}
-#define DEFAULT_AXIS_STEPS_PER_UNIT   {100,100,3200/8,133}
+#define DEFAULT_AXIS_STEPS_PER_UNIT   {100,100,3200/8,161.3}
 
 // Endstop inverting
 #define X_MIN_ENDSTOP_INVERTING 0 // set to 1 to invert the logic of the endstop.
@@ -60,7 +60,7 @@
 #define X_MAX_POS 250
 #define X_MIN_POS 0
 #define Y_MAX_POS 210
-#define Y_MIN_POS -4
+#define Y_MIN_POS -2.2
 #define Z_MAX_POS 210
 #define Z_MIN_POS 0.15
 
@@ -110,7 +110,7 @@
 #define WATCHDOG
 
 // Fan check
-#define FANCHECK
+// #define FANCHECK
 
 // Safety timer
 #define SAFETYTIMER
@@ -121,8 +121,8 @@
 #define MENU_SERIAL_DUMP        // Enable "Memory dump" in Settings menu
 
 // Filament sensor
-#define FILAMENT_SENSOR
-#define FILAMENT_SENSOR_TYPE FSENSOR_PAT9125
+// #define FILAMENT_SENSOR
+// #define FILAMENT_SENSOR_TYPE FSENSOR_PAT9125
 
 #define DEBUG_DCODE2
 #define DEBUG_DCODE3
@@ -190,12 +190,12 @@
 #define  DEFAULT_Kd 73.76
 #else
 // Define PID constants for extruder
-//#define  DEFAULT_Kp 40.925
-//#define  DEFAULT_Ki 4.875
-//#define  DEFAULT_Kd 86.085
-#define  DEFAULT_Kp 16.13
-#define  DEFAULT_Ki 1.1625
-#define  DEFAULT_Kd 56.23
+#define  DEFAULT_Kp 40.925
+#define  DEFAULT_Ki 4.875
+#define  DEFAULT_Kd 86.085
+// #define  DEFAULT_Kp 16.13
+// #define  DEFAULT_Ki 1.1625
+// #define  DEFAULT_Kd 56.23
 #endif
 
 // Extrude mintemp
@@ -229,8 +229,8 @@
 #define FILAMENTCHANGE_XYFEED 50
 #define FILAMENTCHANGE_EFEED_FIRST 20 // feedrate in mm/s for fast filament loading sequence used in filament change (M600)
 #define FILAMENTCHANGE_EFEED_FINAL 3.3f // feedrate in mm/s for slow filament loading sequence used in filament change (M600) and filament load (M701) 
-//#define FILAMENTCHANGE_RFEED 400
-#define FILAMENTCHANGE_RFEED 7000 / 60
+#define FILAMENTCHANGE_RFEED 400
+// #define FILAMENTCHANGE_RFEED 7000 / 60
 #define FILAMENTCHANGE_EXFEED 2
 #define FILAMENTCHANGE_ZFEED 15
 
