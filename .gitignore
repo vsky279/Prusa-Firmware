@@ -6,6 +6,9 @@
 # cmake
 /build/
 /build_gen/
+/baseline-source/
+/baseline-source.zip
+/build-baseline*/
 /.dependencies
 /compile_commands.json
 
