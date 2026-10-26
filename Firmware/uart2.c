@@ -1,5 +1,8 @@
 //uart2.c
+#include "Configuration_var.h" // C-compatible variant macros select UART ownership.
 #include "uart2.h"
+
+#if SERIAL_PORT != 2
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
@@ -82,4 +85,8 @@ ISR(USART2_RX_vect)
 		puts_P(PSTR("USART2 rx Full!!!"));
 	}
 }
-
+#else
+FILE _uart2io = {0};
+void uart2_init(uint32_t baudRate) { (void)baudRate; }
+int8_t uart2_rx_str_P(const char *str) { (void)str; return 0; }
+#endif
