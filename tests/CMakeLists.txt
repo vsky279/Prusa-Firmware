@@ -17,6 +17,11 @@ target_include_directories(tests PRIVATE tests)
 target_link_libraries(tests Catch2::Catch2WithMain)
 catch_discover_tests(tests)
 
+# Compile the actual firmware solver and scan loop with hardware boundary doubles.
+add_test(NAME MK24Calibration
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/run_mk24_calibration.py"
+            "${CMAKE_CXX_COMPILER}")
+
 set(ctest_test_args --output-on-failure)
 
 include(ProcessorCount)
