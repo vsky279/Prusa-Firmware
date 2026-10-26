@@ -106,6 +106,19 @@ const float bed_ref_points_4[] PROGMEM = {
 #endif //not HEATBED_V2
 
 
+// XYZ reference indices only: never use this predicate for G80 mesh probing.
+#if defined(MK24_MISSING_XYZ_POINT) && (MK24_MISSING_XYZ_POINT != 2 || !defined(HEATBED_V2) || !defined(NEW_XYZCAL))
+#error "MK2.4 three-point calibration requires HEATBED_V2, NEW_XYZCAL and missing index 2"
+#endif
+static inline bool xyz_reference_missing(uint8_t i) {
+#ifdef MK24_MISSING_XYZ_POINT
+    return i == MK24_MISSING_XYZ_POINT;
+#else
+    (void)i;
+    return false;
+#endif
+}
+
 static inline float sqr(float x) { return x * x; }
 
 #ifdef HEATBED_V2
@@ -192,6 +205,24 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
 #endif //SUPPORT_VERBOSITY
     )
 {
+#ifdef MK24_MISSING_XYZ_POINT
+    // Three widely separated, correctly oriented measured points are required.
+    // Do not read the missing slot (it is deliberately not initialized by probing).
+    if (npts != 4) return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+    for (uint8_t i = 0; i < 4; ++i) {
+        if (xyz_reference_missing(i)) continue;
+        if (!isfinite(measured_pts[2*i]) || !isfinite(measured_pts[2*i+1]))
+            return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+    }
+    const float ux = measured_pts[2] - measured_pts[0];
+    const float uy = measured_pts[3] - measured_pts[1];
+    const float vx = measured_pts[6] - measured_pts[0];
+    const float vy = measured_pts[7] - measured_pts[1];
+    const float area = ux * vy - uy * vx;
+    const float lengths = hypot(ux, uy) * hypot(vx, vy);
+    if (!isfinite(area) || !isfinite(lengths) || lengths < 100.f || area < 0.5f * lengths)
+        return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+#endif
 	float angleDiff;
 	#ifdef SUPPORT_VERBOSITY
     if (verbosity_level >= 10) {
@@ -217,6 +248,7 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
         SERIAL_ECHOLNPGM("");
 
         for (uint8_t i = 0; i < npts; ++i) {
+            if (npts == 4 && xyz_reference_missing(i)) continue;
             SERIAL_ECHOPGM("point #");
             MYSERIAL.print(int(i));
             SERIAL_ECHOPGM(" measured: (");
@@ -261,6 +293,7 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
                 acc = 0;
                 // J^T times J
                 for (uint8_t i = 0; i < npts; ++i) {
+                    if (npts == 4 && xyz_reference_missing(i)) continue;
                     // First for the residuum in the x axis:
                     if (r != 1 && c != 1) {
                         float a =
@@ -295,6 +328,7 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
             // J^T times f(x)
             acc = 0.f;
             for (uint8_t i = 0; i < npts; ++i) {
+                if (npts == 4 && xyz_reference_missing(i)) continue;
                 {
                     float j =
                          (r == 0) ? 1.f :
@@ -319,6 +353,11 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
             b[r] = -acc;
         }
 
+#ifdef MK24_MISSING_XYZ_POINT
+        for (uint8_t r = 0; r < 4; ++r)
+            if (!isfinite(A[r][r]) || A[r][r] < 1.e-6f || !isfinite(b[r]))
+                return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+#endif
         // Solve for h by a Gauss iteration method.
         float h[4] = { 0.f };
         for (uint8_t gauss_iter = 0; gauss_iter < 100; ++gauss_iter) {
@@ -336,6 +375,11 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
         cntr[1] += h[1];
         a1 += h[2];
         a2 += h[3];
+#ifdef MK24_MISSING_XYZ_POINT
+        if (iter == 99 && (fabs(h[0]) > 0.001f || fabs(h[1]) > 0.001f ||
+                           fabs(h[2]) > 1.e-5f || fabs(h[3]) > 1.e-5f))
+            return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+#endif
 
 		#ifdef SUPPORT_VERBOSITY
         if (verbosity_level >= 20) {
@@ -364,6 +408,10 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
 		#endif // SUPPORT_VERBOSITY
     }
 
+#ifdef MK24_MISSING_XYZ_POINT
+    if (!isfinite(a1) || !isfinite(a2) || !isfinite(cntr[0]) || !isfinite(cntr[1]))
+        return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+#endif
     vec_x[0] =  cos(a1) * MACHINE_AXIS_SCALE_X;
     vec_x[1] =  sin(a1) * MACHINE_AXIS_SCALE_X;
     vec_y[0] = -sin(a2) * MACHINE_AXIS_SCALE_Y;
@@ -374,7 +422,9 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
         angleDiff = fabs(a2 - a1);
         /// XY skew and Y-bed skew
         DBG(_n("Measured skews: %f %f\n"), degrees(a2 - a1), degrees(a2));
-        eeprom_update_float_notify((float *)(EEPROM_XYZ_CAL_SKEW), angleDiff); //storing xyz cal. skew to be able to show in support menu later
+#ifndef MK24_MISSING_XYZ_POINT
+        eeprom_update_float_notify((float *)(EEPROM_XYZ_CAL_SKEW), angleDiff);
+#endif
         if (angleDiff > bed_skew_angle_mild)
             result = (angleDiff > bed_skew_angle_extreme) ?
                 BED_SKEW_OFFSET_DETECTION_SKEW_EXTREME :
@@ -382,6 +432,11 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
         if (fabs(a1) > bed_skew_angle_extreme ||
             fabs(a2) > bed_skew_angle_extreme)
             result = BED_SKEW_OFFSET_DETECTION_SKEW_EXTREME;
+#ifdef MK24_MISSING_XYZ_POINT
+        // With one reference unavailable, never persist an extreme solution.
+        if (result == BED_SKEW_OFFSET_DETECTION_SKEW_EXTREME)
+            return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+#endif
     }
 	#ifdef SUPPORT_VERBOSITY
     if (verbosity_level >= 1) {
@@ -418,6 +473,7 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
 	#endif // SUPPORT_VERBOSITY
     // Measure the error after correction.
     for (uint8_t i = 0; i < npts; ++i) {
+        if (npts == 4 && xyz_reference_missing(i)) continue;
         float x = vec_x[0] * measured_pts[i * 2] + vec_y[0] * measured_pts[i * 2 + 1] + cntr[0];
         float y = vec_x[1] * measured_pts[i * 2] + vec_y[1] * measured_pts[i * 2 + 1] + cntr[1];
         float errX = pgm_read_float(true_pts + i * 2) - x;
@@ -453,7 +509,7 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
 			#ifdef SUPPORT_VERBOSITY
 			if(verbosity_level >=20 ) SERIAL_ECHOPGM("Point not on first row");
 			#endif // SUPPORT_VERBOSITY
-			if (err > BED_CALIBRATION_POINT_OFFSET_MAX_EUCLIDIAN) {
+			if (!isfinite(err) || err > BED_CALIBRATION_POINT_OFFSET_MAX_EUCLIDIAN) {
 				result = BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
 				#ifdef SUPPORT_VERBOSITY
 				if(verbosity_level >= 20) SERIAL_ECHOPGM(", error > max. error euclidian");
@@ -517,6 +573,7 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
         float wx = 0.f;
         float wy = 0.f;
         for (int8_t i = 0; i < npts; ++ i) {
+            if (npts == 4 && xyz_reference_missing(i)) continue;
             float x = vec_x[0] * measured_pts[i * 2] + vec_y[0] * measured_pts[i * 2 + 1];
             float y = vec_x[1] * measured_pts[i * 2] + vec_y[1] * measured_pts[i * 2 + 1];
             float w = point_weight_x(i, y);
@@ -572,9 +629,22 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
 		#endif // SUPPORT_VERBOSITY
     }
 
+#ifdef MK24_MISSING_XYZ_POINT
+    for (uint8_t i = 0; i < npts; ++i) {
+        if (xyz_reference_missing(i)) continue;
+        const float dx = vec_x[0]*measured_pts[2*i] + vec_y[0]*measured_pts[2*i+1] + cntr[0] - pgm_read_float(true_pts+2*i);
+        const float dy = vec_x[1]*measured_pts[2*i] + vec_y[1]*measured_pts[2*i+1] + cntr[1] - pgm_read_float(true_pts+2*i+1);
+        if (!isfinite(dx) || !isfinite(dy) || hypot(dx,dy) > BED_CALIBRATION_POINT_OFFSET_MAX_EUCLIDIAN)
+            return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+    }
+#endif
     // Invert the transformation matrix made of vec_x, vec_y and cntr.
     {
         float d = vec_x[0] * vec_y[1] - vec_x[1] * vec_y[0];
+#ifdef MK24_MISSING_XYZ_POINT
+        if (!isfinite(d) || d < 0.5f)
+            return BED_SKEW_OFFSET_DETECTION_FITTING_FAILED;
+#endif
         float Ainv[2][2] = {
             { vec_y[1] / d, -vec_y[0] / d },
             { -vec_x[1] / d, vec_x[0] / d }
@@ -616,6 +686,7 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
     if (verbosity_level >= 2) {
         SERIAL_ECHOLNPGM("Difference after correction: ");
         for (uint8_t i = 0; i < npts; ++i) {
+            if (npts == 4 && xyz_reference_missing(i)) continue;
             float x = vec_x[0] * pgm_read_float(true_pts + i * 2) + vec_y[0] * pgm_read_float(true_pts + i * 2 + 1) + cntr[0];
             float y = vec_x[1] * pgm_read_float(true_pts + i * 2) + vec_y[1] * pgm_read_float(true_pts + i * 2 + 1) + cntr[1];
             SERIAL_ECHOPGM("point #");
@@ -648,6 +719,10 @@ BedSkewOffsetDetectionResultType calculate_machine_skew_and_offset_LS(
 	#endif // SUPPORT_VERBOSITY
 
 
+#ifdef MK24_MISSING_XYZ_POINT
+    if (result >= 0)
+        eeprom_update_float_notify((float *)(EEPROM_XYZ_CAL_SKEW), angleDiff);
+#endif
     return result;
 }
 
@@ -2240,6 +2315,7 @@ BedSkewOffsetDetectionResultType find_bed_offset_and_skew(int8_t verbosity_level
     for (uint8_t retries = 0; retries <= 1; ++retries) {
         bool retry = false;
         for (int k = 0; k < 4; ++k) {
+            if (xyz_reference_missing(k)) continue;
             // Don't let the manage_inactivity() function remove power from the motors.
             refresh_cmd_timeout();
 #ifdef MESH_BED_CALIBRATION_SHOW_LCD
@@ -2392,8 +2468,12 @@ BedSkewOffsetDetectionResultType find_bed_offset_and_skew(int8_t verbosity_level
         }
         if (!retry)
             break;
+#ifdef MK24_MISSING_XYZ_POINT
+        if (retries == 1)
+            return BED_SKEW_OFFSET_DETECTION_POINT_SCAN_FAILED;
+#endif
     }
-        DBG(_n("All 4 calibration points found.\n"));
+        DBG(_n("All available XYZ calibration points found.\n"));
         delay_keep_alive(0); //manage_heater, reset watchdog, manage inactivity
 
 		#ifdef SUPPORT_VERBOSITY
@@ -2401,6 +2481,7 @@ BedSkewOffsetDetectionResultType find_bed_offset_and_skew(int8_t verbosity_level
 			// Test the positions. Are the positions reproducible? Now the calibration is active in the planner.
 			delay_keep_alive(3000);
 			for (int8_t mesh_point = 0; mesh_point < 4; ++mesh_point) {
+			    if (xyz_reference_missing(mesh_point)) continue;
 				// Don't let the manage_inactivity() function remove power from the motors.
 				refresh_cmd_timeout();
 				// Go to the measurement point.
@@ -2528,6 +2609,7 @@ BedSkewOffsetDetectionResultType improve_bed_offset_and_skew(int8_t method, int8
     // Collect a matrix of 9x9 points.
     BedSkewOffsetDetectionResultType result = BED_SKEW_OFFSET_DETECTION_PERFECT;
     for (int8_t mesh_point = 0; mesh_point < 4; ++ mesh_point) {
+        if (xyz_reference_missing(mesh_point)) continue;
         // Don't let the manage_inactivity() function remove power from the motors.
         refresh_cmd_timeout();
         // Print the decrasing ID of the measurement point.
@@ -2663,6 +2745,7 @@ BedSkewOffsetDetectionResultType improve_bed_offset_and_skew(int8_t method, int8
         // Test the positions. Are the positions reproducible?
 		current_position[Z_AXIS] = MESH_HOME_Z_SEARCH;
         for (int8_t mesh_point = 0; mesh_point < 4; ++ mesh_point) {
+            if (xyz_reference_missing(mesh_point)) continue;
             // Don't let the manage_inactivity() function remove power from the motors.
             refresh_cmd_timeout();
             // Go to the measurement point.
@@ -2731,6 +2814,7 @@ BedSkewOffsetDetectionResultType improve_bed_offset_and_skew(int8_t method, int8
         delay_keep_alive(3000);
 		current_position[Z_AXIS] = MESH_HOME_Z_SEARCH;
         for (int8_t mesh_point = 0; mesh_point < 4; ++ mesh_point) {
+            if (xyz_reference_missing(mesh_point)) continue;
             // Don't let the manage_inactivity() function remove power from the motors.
             refresh_cmd_timeout();
             // Go to the measurement point.
