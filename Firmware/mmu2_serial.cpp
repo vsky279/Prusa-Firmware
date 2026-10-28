@@ -1,3 +1,4 @@
+#include "Configuration.h"
 #include "mmu2_serial.h"
 #include "uart2.h"
 
@@ -12,7 +13,11 @@ void MMU2Serial::close() {
 }
 
 int MMU2Serial::read() {
+#if SERIAL_PORT == 2
+    return -1;
+#else
     return fgetc(uart2io);
+#endif
 }
 
 void MMU2Serial::flush() {
@@ -20,10 +25,14 @@ void MMU2Serial::flush() {
 }
 
 void MMU2Serial::write(const uint8_t *buffer, size_t size) {
+#if SERIAL_PORT == 2
+    (void)buffer; (void)size;
+#else
     while(size--){
         fputc(*buffer, uart2io);
         ++buffer;
     }
+#endif
 }
 
 MMU2Serial mmu2Serial;

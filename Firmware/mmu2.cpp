@@ -67,6 +67,10 @@ void MMU2::Status() {
 }
 
 void MMU2::Start() {
+#if SERIAL_PORT == 2
+    // UART2 belongs to the host. Never enable MMU motion or protocol traffic.
+    return;
+#endif
     mmu2Serial.begin(MMU_BAUD);
 
     PowerOn();
